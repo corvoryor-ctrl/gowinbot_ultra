@@ -42,9 +42,9 @@ jobs:
             pip install -r requirements.txt
           fi
 
-          # ติดตั้งแพ็กเกจที่มีปัญหาแบบแยก พร้อม fallback เป็น GitHub
-          (pip install python-machineid \
-            || pip install "git+https://github.com/htrefil/python-machineid.git#egg=python-machineid")
+          # specific extras
+          pip install --pre "pandas-ta==0.3.14b0" \
+            || pip install "git+https://github.com/twopirllc/pandas-ta@0.3.14b0#egg=pandas-ta"
 
           pip install "git+https://github.com/Axxxeel89/iqoptionapi.git#egg=iqoptionapi"
 
