@@ -1,0 +1,30 @@
+{
+  "1": {
+    "model_name": "AI Model (1m)",
+    "timeframe": 1,
+    "version": "1.0.1",
+    "learning_rate": 0.001,
+    "accuracy": 0.5614035087719298,
+    "ece": 0.1750690260619608,
+    "wins": 275,
+    "trades": 525,
+    "last_retrain_ts": "2025-09-18T11:24:58Z",
+    "orders_since_retrain": 15,
+    "auto_enabled": true,
+    "auto_every_orders": 40
+  },
+  "5": {
+    "model_name": "AI Model (5m)",
+    "timeframe": 5,
+    "version": "1.0.1",
+    "learning_rate": 0.001,
+    "accuracy": null,
+    "ece": null,
+    "wins": 1,
+    "trades": 4,
+    "last_retrain_ts": null,
+    "orders_since_retrain": 5,
+    "auto_enabled": true,
+    "auto_every_orders": 40
+  }
+}

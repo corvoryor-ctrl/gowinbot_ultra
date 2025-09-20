@@ -1,0 +1,1769 @@
+﻿<!DOCTYPE html>
+<html lang="th" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GowinBot Ultra Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
+  <style>
+    :root{
+      --bg:#121212; --card:#1e1e1e; --muted:#aaa; --border:#333; --ink:#e0e0e0;
+      --ctrl:#2c2c2c; --accent:#0d6efd;
+    }
+    html,body{height:100%}
+    body { background:var(--bg); color:var(--ink); }
+    .card{ background:var(--card); border:1px solid var(--border); }
+    .form-control,.form-select{ background:var(--ctrl); color:#fff; border-color:#444; }
+    .form-control:focus,.form-select:focus{ background:#333; border-color:var(--accent); color:#fff; box-shadow:none; }
+    .status-dot{ width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:8px }
+    .status-connected{ background:#198754 } .status-disconnected{ background:#dc3545 }
+    #logConsole{ height:260px;background:#000;color:#0f0;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;
+      font-size:.92em;padding:10px;overflow-y:auto;border-radius:6px;white-space:pre-wrap }
+    .stat-pill{ padding:2px 8px;border-radius:12px;background:#1e1e1e;border:1px solid #333 }
+    .stat-win{ color:#39d353 } .stat-lose{ color:#ff6b6b } .stat-draw{ color:#f1c40f }
+    .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid #333;background:#222}
+    .small-mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace}
+    .progress{height:8px;background:#2b2b2b}.progress-bar{background:var(--accent)}
+    .side-labels{ display:flex;justify-content:space-between;font-size:.86rem;color:var(--muted);margin-top:4px }
+    .modal-wide .modal-dialog{ max-width: 860px }
+    .table-sm td, .table-sm th{ padding:.35rem .5rem }
+  </style>
+</head>
+<body>
+  <!-- Topbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#"><i class="bi bi-robot"></i> GowinBot Ultra V1.5 fix</a>
+      <div class="ms-auto d-flex align-items-center gap-3">
+        <span class="navbar-text d-none d-md-inline">
+          PnL: <span id="hudPnL">$0.00</span> •
+          <span class="stat-pill stat-win">W: <span id="hudW">0</span></span> /
+          <span class="stat-pill stat-lose">L: <span id="hudL">0</span></span> /
+          <span class="stat-pill stat-draw">D: <span id="hudD">0</span></span>
+          • Max MG: <span id="hudMG" data-max-mg>0</span>
+        </span>
+        <span id="connectionStatus"><span class="status-dot status-disconnected"></span>Disconnected</span>
+        <span id="balanceDisplay" class="navbar-text">Balance: $0.00</span>
+        <button class="btn btn-outline-danger btn-sm" id="exitAppBtn"><i class="bi bi-box-arrow-right"></i> Exit</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid mt-4">
+    <!-- License Modal -->
+    <div class="modal fade" id="licenseModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+      <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">License Verification</h5></div>
+        <div class="modal-body">
+          <p class="mb-2">Machine ID (HWID): <br><strong id="hwidDisplay" class="small-mono">Loading...</strong></p>
+          <hr class="my-3">
+          <p>กรอก License JSON:</p>
+          <textarea class="form-control" id="licenseKeyInput" rows="4" placeholder='{"email": "...", "hwid": "...", "expire_date": "...", "signature": "..."}'></textarea>
+          <div class="alert alert-danger mt-3 d-none" id="licenseError"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="verifyLicenseBtn">Verify</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="row">
+      <!-- Left column -->
+      <div class="col-lg-5">
+        <!-- Connection -->
+        <div class="card mb-4">
+          <div class="card-header"><i class="bi bi-hdd-stack-fill"></i> Connection</div>
+          <div class="card-body">
+            <div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" id="email"></div>
+            <div class="mb-3"><label class="form-label">Password</label><input type="password" class="form-control" id="password"></div>
+            <div class="mb-3">
+              <label class="form-label">Account Type</label>
+              <select class="form-select" id="accountType"><option value="PRACTICE">PRACTICE</option><option value="REAL">REAL</option></select>
+            </div>
+            <button class="btn btn-primary w-100" id="connectBtn"><i class="bi bi-power"></i> Connect</button>
+          </div>
+        </div>
+
+        <!-- Bot Control -->
+        <div class="card mb-4">
+          <div class="card-header"><i class="bi bi-toggles"></i> Bot Control</div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Order Duration</label>
+                <select class="form-select" id="duration">
+                  <option value="1">1 Minute</option>
+                  <option value="5">5 Minutes</option>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Amount ($)</label>
+                <input type="number" class="form-control" id="amount" value="1.0" step="0.5" min="0">
+              </div>
+            </div>
+
+            <div class="row">
+              <label class="form-label">Block Time (Thai Time)</label>
+              <div class="col-md-6 mb-3"><input type="time" class="form-control" id="blockStart"></div>
+              <div class="col-md-6 mb-3"><input type="time" class="form-control" id="blockEnd"></div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Lead Time (sec) before :00</label>
+                <input type="number" class="form-control" id="leadTimeSec" value="5" min="1" max="15" step="1">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Trend Filter (H1/H4)</label>
+                <select class="form-select" id="trendFilterMode">
+                  <option value="off">Off</option>
+                  <option value="weak" selected>Weak</option>
+                  <option value="strict">Strict</option>
+                </select>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">5m Micro-filter</label>
+                <div class="form-check form-switch mt-2">
+                  <input class="form-check-input" type="checkbox" id="microFilter5m" checked>
+                  <label class="form-check-label" for="microFilter5m">Enabled</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Take Profit ($)</label>
+                <input type="number" class="form-control" id="tpAmount" placeholder="เช่น 10">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Stop Loss ($)</label>
+                <input type="number" class="form-control" id="slAmount" placeholder="เช่น 10">
+              </div>
+            </div>
+
+            <div class="d-grid gap-2">
+              <button class="btn btn-success" id="startBotBtn" disabled><i class="bi bi-play-fill"></i> Start Bot</button>
+              <button class="btn btn-danger" id="stopBotBtn" disabled><i class="bi bi-stop-fill"></i> Stop Bot</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div class="col-lg-7">
+        <!-- Strategy & MG -->
+        <div class="card mb-4">
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <span><i class="bi bi-bar-chart-line-fill"></i> Strategy & Martingale</span>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-secondary btn-sm d-none" id="openAiModalBtn" title="AI thresholds">
+                <i class="bi bi-sliders"></i> AI thresholds
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" id="openIndicatorModalBtn" title="Indicator Params">
+                <i class="bi bi-funnel"></i> Indicator Params
+              </button>
+              <button class="btn btn-outline-secondary btn-sm d-none" id="openMbfModalBtn" title="MBF thresholds">
+                <i class="bi bi-sliders"></i> MBF thresholds
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label">Strategy</label>
+              <select class="form-select" id="strategy"></select>
+            </div>
+
+            <div class="mt-3">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label m-0">ความเข้มของสัญญาณ</label>
+                <span class="badge rounded-pill text-bg-secondary"><i class="bi bi-soundwave"></i> <span id="sigSenseVal">50</span> / 100</span>
+              </div>
+              <input type="range" id="sigSense" min="0" max="100" value="50" step="1" class="w-100">
+              <div class="side-labels"><span>หลวม</span><span>เข้ม</span></div>
+            </div>
+
+            <hr>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Martingale Mode</label>
+                <select id="mgMode" class="form-select"><option>None</option><option>Normal</option><option>Custom</option></select>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Scope</label>
+                <select id="mgScope" class="form-select"><option>Separate</option><option>Combined</option></select>
+              </div>
+              <div class="col-md-4 mb-1">
+                <label class="form-label">Custom Amounts</label>
+                <input id="mgCustom" class="form-control" placeholder="1, 2.2, 4.8" disabled>
+                <div class="form-text">ใช้เมื่อ Mode = Custom (คั่นด้วย ,)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Assets -->
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-currency-exchange"></i> Asset Selection</span>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-secondary btn-sm" id="openAssetSettingsBtn">
+                <i class="bi bi-sliders"></i> Order settings
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" id="openMarketHoursBtn">
+                <i class="bi bi-calendar-week"></i> Market Hours
+              </button>
+            </div>
+          </div>
+          <div class="card-body row" id="assetSelection"></div>
+        </div>
+
+        <!-- AI status -->
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <div><i class="bi bi-cpu"></i> AI Model Status</div>
+            <div class="d-flex gap-2 align-items-center">
+              <span class="chip"><i class="bi bi-clock"></i> <span id="aiTf">-</span></span>
+              <span class="chip"><i class="bi bi-tag"></i> <span id="aiVersion">-</span></span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div>Model: <strong id="aiName">-</strong></div>
+                <div>Learning rate: <span id="aiLr" class="small-mono">-</span></div>
+                <div>Accuracy: <strong id="aiAcc">-</strong></div>
+                <div>Win rate: <strong id="aiWin">-</strong></div>
+                <div>Calibration (ECE): <strong id="aiEce">-</strong></div>
+              </div>
+              <div class="col-md-6">
+                <div>Orders since last retrain: <span id="aiOrders" class="small-mono">0</span> / <span class="small-mono" id="aiEvery">40</span></div>
+                <div class="progress mb-2"><div id="aiProg" class="progress-bar" style="width:0%"></div></div>
+                <div>Last retrain: <span id="aiLast">-</span></div>
+                <div>Next auto: <span id="aiNext">-</span></div>
+              </div>
+            </div>
+            <hr>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="aiAutoSwitch" checked>
+                <label class="form-check-label" for="aiAutoSwitch">Auto Retrain + Calibrate</label>
+              </div>
+              <div class="input-group input-group-sm" style="width:180px">
+                <span class="input-group-text">Every</span>
+                <input type="number" class="form-control" id="aiEveryInput" value="40" min="10" step="10">
+                <span class="input-group-text">orders</span>
+              </div>
+              <button class="btn btn-sm btn-outline-warning" id="aiRetrainBtn"><i class="bi bi-arrow-repeat"></i> Retrain Now</button>
+              <button class="btn btn-sm btn-outline-info" id="aiCalibBtn"><i class="bi bi-bullseye"></i> Calibrate Now</button>
+              <span class="text-muted ms-auto" id="aiMsg"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Indicator live badge -->
+        <div class="card mb-4" id="indicatorStatCard">
+          <div class="card-header"><i class="bi bi-toggles"></i> UI stat: Indicator (custom)</div>
+          <div class="card-body">
+            <div class="mb-2"><small class="text-muted">Active set:</small> <span id="indActiveList">(all off)</span></div>
+            <p class="mb-1"><strong>Live badges:</strong> <span id="indLiveList">—</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logs & History -->
+    <div class="row">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs">
+              <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#logTab">Log Console</a></li>
+              <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#historyTab">Trade History</a></li>
+            </ul>
+          </div>
+          <div class="card-body">
+            <div class="tab-content">
+              <div class="tab-pane fade show active" id="logTab"><div id="logConsole"></div></div>
+              <div class="tab-pane fade" id="historyTab">
+                <div class="mb-3">
+                  <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="chip">Session PnL: <strong id="sessPnL">$0.00</strong></span>
+                    <span class="chip stat-win">W: <span id="sessW">0</span></span>
+                    <span class="chip stat-lose">L: <span id="sessL">0</span></span>
+                    <span class="chip stat-draw">D: <span id="sessD">0</span></span>
+                    <span class="chip">Max Step: <span id="sessMax">0</span></span>
+                    <button class="btn btn-sm btn-outline-warning ms-auto" id="resetSessionBtn">
+                      <i class="bi bi-arrow-counterclockwise"></i> Reset Session
+                    </button>
+                  </div>
+                  <small class="text-muted">Since: <span id="sessionSince">—</span></small>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <button class="btn btn-sm btn-outline-secondary" id="exportCsvBtn">Export to CSV</button>
+                  <small class="text-muted" id="historyUpdatedAt"></small>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-striped table-hover table-sm">
+                    <thead><tr>
+                      <th>Timestamp</th><th>Asset</th><th>Direction</th><th>Amount</th>
+                      <th>MG Step</th><th>Result</th><th>Profit</th><th>Strategy</th>
+                    </tr></thead>
+                    <tbody id="tradeHistoryBody"></tbody>
+                  </table>
+                </div>
+              </div><!-- /historyTab -->
+            </div>
+          </div>
+        </div>
+      </div> 
+    </div>
+  </div><!-- /container -->
+
+  <!-- Modals: AI thresholds -->
+  <div class="modal fade modal-wide" id="aiThresholdsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-sliders"></i> AI Thresholds</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <ul class="nav nav-tabs mb-3" id="aiTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="tab-1m" data-bs-toggle="tab" data-bs-target="#pane-1m" type="button" role="tab">AI 1m</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="tab-5m" data-bs-toggle="tab" data-bs-target="#pane-5m" type="button" role="tab">AI 5m</button>
+            </li>
+          </ul>
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="pane-1m" role="tabpanel" aria-labelledby="tab-1m">
+              <label class="form-label">Confidence (conf)</label>
+              <input type="range" min="0.50" max="0.90" step="0.01" id="ai1m_conf">
+              <div class="side-labels"><span>0.50</span><span id="ai1m_conf_val">0.60</span><span>0.90</span></div>
+
+              <label class="form-label mt-3">Gap</label>
+              <input type="range" min="0.00" max="1.00" step="0.01" id="ai1m_gap">
+              <div class="side-labels"><span>0.00</span><span id="ai1m_gap_val">0.10</span><span>1.00</span></div>
+            </div>
+
+            <div class="tab-pane fade" id="pane-5m" role="tabpanel" aria-labelledby="tab-5m">
+              <label class="form-label">Confidence (conf)</label>
+              <input type="range" min="0.50" max="0.90" step="0.01" id="ai5m_conf">
+              <div class="side-labels"><span>0.50</span><span id="ai5m_conf_val">0.60</span><span>0.90</span></div>
+
+              <label class="form-label mt-3">Gap</label>
+              <input type="range" min="0.00" max="1.00" step="0.01" id="ai5m_gap">
+              <div class="side-labels"><span>0.00</span><span id="ai5m_gap_val">0.12</span><span>1.00</span></div>
+            </div>
+          </div>
+          <div class="form-text mt-2">ไกด์ไลน์: 1m เริ่ม conf=0.55–0.60, gap=0.10 • 5m เริ่ม conf=0.60, gap=0.12–0.15</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" id="aiDefaultsBtn"><i class="bi bi-arrow-counterclockwise"></i> Reset defaults</button>
+          <button class="btn btn-primary" data-bs-dismiss="modal"><i class="bi bi-check2"></i> Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals: MBF thresholds -->
+  <div class="modal fade" id="mbfThresholdsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="background:#1e1e1e;border:1px solid #333;">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-sliders"></i> Momentum Breakout (Fake) — 1m Thresholds</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label">Min Confidence (conf)</label>
+          <input type="range" min="0.50" max="0.90" step="0.01" id="mbf1m_conf">
+          <div class="d-flex justify-content-between text-muted small">
+            <span>0.50</span><span id="mbf1m_conf_val">0.55</span><span>0.90</span>
+          </div>
+
+          <label class="form-label mt-3">Min Gap</label>
+          <input type="range" min="0.00" max="1.00" step="0.01" id="mbf1m_gap">
+          <div class="d-flex justify-content-between text-muted small">
+            <span>0.00</span><span id="mbf1m_gap_val">0.08</span><span>1.00</span>
+          </div>
+
+          <div class="form-text mt-2">แนะนำเริ่มต้น: conf=0.55, gap=0.08</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" id="mbfDefaultsBtn">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset
+          </button>
+          <button class="btn btn-primary" data-bs-dismiss="modal"><i class="bi bi-check2"></i> Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals: Indicator params -->
+  <div class="modal fade modal-wide" id="indicatorParamsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content" style="background:#1e1e1e;border:1px solid #333;">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-funnel"></i> Indicator Parameters</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- switches -->
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="ind_use" checked>
+            <label class="form-check-label" for="ind_use">Enable custom indicator filters</label>
+          </div>
+          <hr>
+
+          <!-- MA -->
+          <h6 class="mb-1">Moving Average</h6>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="ma_enabled">
+            <label class="form-check-label" for="ma_enabled">Enable</label>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-3"><label class="form-label">Type</label><select class="form-select" id="ma_type"><option>EMA</option><option>SMA</option></select></div>
+            <div class="col-md-3"><label class="form-label">Length</label><input type="number" class="form-control" id="ma_length" value="50" min="1"></div>
+            <div class="col-md-3"><label class="form-label">Bias</label><select class="form-select" id="ma_bias"><option value="any">any</option><option value="up">up</option><option value="down">down</option></select></div>
+            <div class="col-md-3"><label class="form-label">Slope</label><select class="form-select" id="ma_slope"><option value="any">any</option><option value="up">up</option><option value="down">down</option></select></div>
+          </div>
+          <hr>
+
+          <!-- MACD -->
+          <h6 class="mb-1">MACD</h6>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="macd_enabled">
+            <label class="form-check-label" for="macd_enabled">Enable</label>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-3"><label class="form-label">Fast</label><input type="number" class="form-control" id="macd_fast" value="12"></div>
+            <div class="col-md-3"><label class="form-label">Slow</label><input type="number" class="form-control" id="macd_slow" value="26"></div>
+            <div class="col-md-3"><label class="form-label">Signal</label><input type="number" class="form-control" id="macd_signal" value="9"></div>
+            <div class="col-md-3"><label class="form-label">Mode</label><select class="form-select" id="macd_mode"><option>confirm</option><option>contrarian</option></select></div>
+          </div>
+          <hr>
+
+          <!-- Ichimoku -->
+          <h6 class="mb-1">Ichimoku Cloud</h6>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="ich_enabled">
+            <label class="form-check-label" for="ich_enabled">Enable</label>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-3"><label class="form-label">Tenkan</label><input type="number" class="form-control" id="ich_tenkan" value="9"></div>
+            <div class="col-md-3"><label class="form-label">Kijun</label><input type="number" class="form-control" id="ich_kijun" value="26"></div>
+            <div class="col-md-3"><label class="form-label">Senkou B</label><input type="number" class="form-control" id="ich_sb" value="52"></div>
+            <div class="col-md-3"><label class="form-label">Mode</label><select class="form-select" id="ich_mode"><option>trend</option></select></div>
+          </div>
+          <hr>
+
+          <!-- RSI -->
+          <h6 class="mb-1">RSI</h6>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="rsi_enabled">
+            <label class="form-check-label" for="rsi_enabled">Enable</label>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-3"><label class="form-label">Length</label><input type="number" class="form-control" id="rsi_len" value="14"></div>
+            <div class="col-md-3"><label class="form-label">OB</label><input type="number" class="form-control" id="rsi_ob" value="70"></div>
+            <div class="col-md-3"><label class="form-label">OS</label><input type="number" class="form-control" id="rsi_os" value="30"></div>
+            <div class="col-md-3"><label class="form-label">Mode</label><select class="form-select" id="rsi_mode"><option>filter</option><option>entry</option></select></div>
+          </div>
+          <hr>
+
+          <!-- Stochastic -->
+          <h6 class="mb-1">Stochastic Oscillator</h6>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="stoch_enabled">
+            <label class="form-check-label" for="stoch_enabled">Enable</label>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-2"><label class="form-label">K</label><input type="number" class="form-control" id="stoch_k" value="14"></div>
+            <div class="col-md-2"><label class="form-label">D</label><input type="number" class="form-control" id="stoch_d" value="3"></div>
+            <div class="col-md-2"><label class="form-label">Smooth</label><input type="number" class="form-control" id="stoch_s" value="3"></div>
+            <div class="col-md-3"><label class="form-label">OB</label><input type="number" class="form-control" id="stoch_ob" value="80"></div>
+            <div class="col-md-3"><label class="form-label">OS</label><input type="number" class="form-control" id="stoch_os" value="20"></div>
+            <div class="col-md-3 mt-1"><label class="form-label">Mode</label>
+              <select class="form-select" id="stoch_mode">
+                <option value="off">off</option>
+                <option value="filter">filter</option>
+                <option value="entry">entry</option>
+              </select>
+            </div>
+          </div>
+          <hr>
+
+          <!-- Bollinger -->
+          <h6 class="mb-1">Bollinger Bands</h6>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="bb_enabled">
+            <label class="form-check-label" for="bb_enabled">Enable</label>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-3"><label class="form-label">Length</label><input type="number" class="form-control" id="bb_len" value="20"></div>
+            <div class="col-md-3"><label class="form-label">K</label><input type="number" class="form-control" id="bb_k" value="2.0" step="0.1"></div>
+            <div class="col-md-3"><label class="form-label">Mode</label><select class="form-select" id="bb_mode"><option>squeeze</option><option>bandtouch</option></select></div>
+          </div>
+          <hr>
+
+          <!-- ATR -->
+          <h6 class="mb-1">Average True Range</h6>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="atr_enabled">
+            <label class="form-check-label" for="atr_enabled">Enable</label>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-4"><label class="form-label">Length</label><input type="number" class="form-control" id="atr_len" value="14"></div>
+            <div class="col-md-4"><label class="form-label">Min ATR</label><input type="number" class="form-control" id="atr_min" value="0" step="0.00001"></div>
+          </div>
+          <hr>
+
+          <!-- VWAP/OBV -->
+          <h6 class="mb-1">VWAP & On-Balance Volume</h6>
+          <div class="row g-2">
+            <div class="col-md-3">
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="vwap_enabled">
+                <label class="form-check-label" for="vwap_enabled">VWAP</label>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="obv_enabled">
+                <label class="form-check-label" for="obv_enabled">OBV</label>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">OBV Mode</label>
+              <select class="form-select" id="obv_mode"><option>confirm</option><option>contrarian</option></select>
+            </div>
+          </div>
+          <hr>
+
+          <!-- Volume Profile (minimal) -->
+          <h6 class="mb-1">Volume Profile</h6>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="vp_enabled">
+            <label class="form-check-label" for="vp_enabled">Enable</label>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-3"><label class="form-label">Bins</label><input type="number" class="form-control" id="vp_bins" value="24" min="8" max="80"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" id="saveIndicatorsBtn"><i class="bi bi-check2"></i> Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals: Asset settings -->
+  <div class="modal fade" id="assetSettingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-sliders"></i> Order Settings</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label">Max Orders per cycle</label>
+          <input type="number" min="1" max="12" step="1" class="form-control" id="maxOrdersInput" placeholder="ว่างไว้ = ยิงทุกสัญญาณ">
+          <div class="form-text">
+            ถ้าตั้งเป็น 1 และเลือกหลายคู่เงิน บอทจะ “คัดออเดอร์ที่ดีที่สุด” ในรอบนั้นออกแค่ 1 ออเดอร์
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" id="saveAssetSettingsBtn"><i class="bi bi-check2"></i> Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals: Market Hours -->
+  <div class="modal fade modal-wide" id="marketHoursModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-calendar-week"></i> Market Hours</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="text-muted small">Timezone: <span id="mhTz">-</span></div>
+            <div class="input-group input-group-sm" style="width: 240px">
+              <span class="input-group-text">Filter</span>
+              <input type="text" class="form-control" id="mhFilter" placeholder="เช่น: AUD, OTC">
+            </div>
+          </div>
+          <div class="table-responsive" style="max-height: 420px; overflow:auto;">
+            <table class="table table-sm table-hover align-middle">
+              <thead><tr><th>Asset</th><th>Day</th><th>Trading Windows (UTC+7)</th></tr></thead>
+              <tbody id="mhTableBody"></tbody>
+            </table>
+          </div>
+          <div class="form-text">* สีเขียว = เปิดในช่วงเวลานี้, เทา = ปิด</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  (function(){
+    "use strict";
+
+    const API_BASE_URL = 'http://127.0.0.1:9000';
+
+    // ----- elements -----
+    const connectBtn = document.getElementById('connectBtn');
+    const startBotBtn = document.getElementById('startBotBtn');
+    const stopBotBtn = document.getElementById('stopBotBtn');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const balanceDisplay = document.getElementById('balanceDisplay');
+    const logConsole = document.getElementById('logConsole');
+    const durationSelect = document.getElementById('duration');
+    const strategySelect = document.getElementById('strategy');
+    const assetSelectionContainer = document.getElementById('assetSelection');
+    const tradeHistoryBody = document.getElementById('tradeHistoryBody');
+    const exportCsvBtn = document.getElementById('exportCsvBtn');
+    const historyUpdatedAt = document.getElementById('historyUpdatedAt');
+
+    const hudPnL = document.getElementById('hudPnL');
+    const hudW = document.getElementById('hudW');
+    const hudL = document.getElementById('hudL');
+    const hudD = document.getElementById('hudD');
+    const hudMG = document.getElementById('hudMG');
+
+    const mgMode = document.getElementById('mgMode');
+    const mgScope = document.getElementById('mgScope');
+    const mgCustom = document.getElementById('mgCustom');
+    const tpAmount = document.getElementById('tpAmount');
+    const slAmount = document.getElementById('slAmount');
+    const sigSense = document.getElementById('sigSense');
+    const sigSenseVal = document.getElementById('sigSenseVal');
+    const leadTimeSec = document.getElementById('leadTimeSec');
+    const trendFilterMode = document.getElementById('trendFilterMode');
+    const microFilter5m = document.getElementById('microFilter5m');
+
+    const aiName = document.getElementById('aiName');
+    const aiTf = document.getElementById('aiTf');
+    const aiVersion = document.getElementById('aiVersion');
+    const aiLr = document.getElementById('aiLr');
+    const aiAcc = document.getElementById('aiAcc');
+    const aiWin = document.getElementById('aiWin');
+    const aiEce = document.getElementById('aiEce');
+    const aiOrders = document.getElementById('aiOrders');
+    const aiEvery = document.getElementById('aiEvery');
+    const aiProg = document.getElementById('aiProg');
+    const aiLast = document.getElementById('aiLast');
+    const aiNext = document.getElementById('aiNext');
+    const aiAutoSwitch = document.getElementById('aiAutoSwitch');
+    const aiEveryInput = document.getElementById('aiEveryInput');
+    const aiRetrainBtn = document.getElementById('aiRetrainBtn');
+    const aiCalibBtn = document.getElementById('aiCalibBtn');
+    const aiMsg = document.getElementById('aiMsg');
+
+    const openAiModalBtn = document.getElementById('openAiModalBtn');
+    const aiThresholdsModalEl = document.getElementById('aiThresholdsModal');
+    const aiModal = new bootstrap.Modal(aiThresholdsModalEl);
+    const tab1mBtn = document.getElementById('tab-1m');
+    const tab5mBtn = document.getElementById('tab-5m');
+    const aiDefaultsBtn = document.getElementById('aiDefaultsBtn');
+
+    const openIndicatorModalBtn = document.getElementById('openIndicatorModalBtn');
+    const indicatorParamsModalEl = document.getElementById('indicatorParamsModal');
+    const indicatorModal = new bootstrap.Modal(indicatorParamsModalEl);
+    const indActiveList = document.getElementById('indActiveList');
+    const saveIndBtn = document.getElementById('saveIndicatorsBtn');
+
+    const openAssetSettingsBtn = document.getElementById('openAssetSettingsBtn');
+    const assetSettingsModalEl = document.getElementById('assetSettingsModal');
+    const assetSettingsModal = new bootstrap.Modal(assetSettingsModalEl);
+    const maxOrdersInput = document.getElementById('maxOrdersInput');
+    const saveAssetSettingsBtn = document.getElementById('saveAssetSettingsBtn');
+
+    // License elem
+    const licenseModalEl = document.getElementById('licenseModal');
+    const licenseModal = new bootstrap.Modal(licenseModalEl);
+    const verifyLicenseBtn = document.getElementById('verifyLicenseBtn');
+    const licenseKeyInput = document.getElementById('licenseKeyInput');
+    const licenseError = document.getElementById('licenseError');
+    const hwidDisplay = document.getElementById('hwidDisplay');
+
+    // ----- state -----
+    let isConnected = false;
+    let isBotRunning = false;
+    let statusInterval = null, heartbeatInterval = null, aiInterval = null, tradeHistoryInterval = null;
+    let logUpdateDebounce = null;
+
+    const assets = ['XAUUSD','EURUSD','EURGBP','EURJPY','USDJPY','GBPUSD','AUDUSD',
+                    'XAUUSD-OTC','EURUSD-OTC','AUDCAD-OTC','EURGBP-OTC','GBPUSD-OTC'];
+
+    const strategies = {
+      '1': [
+        "Break-Retest-Go (EMA20)",
+        "Momentum Breakout (Fake - Counter) (1m)",
+        "MACD+EMA12+PSAR (1m)",
+        "AI Model (1m)",
+        "Sniper Confluence (Multi)",
+        "Sniper FlowShift (Rank)",
+        "Impulse SMA + RSI + Elder"
+      ],
+      '5': [
+        "R2S Strategy (5m)",
+        "MACD+EMA12+PSAR (5m)",
+        "AI Model (5m)",
+        "Sniper Confluence (Multi)",
+        "Sniper FlowShift (Rank)",
+        "Impulse SMA + RSI + Elder"
+      ]
+    };
+
+    // ===== helpers =====
+    function logMessage(m){
+      const ts = new Date().toLocaleTimeString();
+      logConsole.textContent += `[${ts}] ${m}\n`;
+      logConsole.scrollTop = logConsole.scrollHeight;
+      // debounce history refresh while bot running
+      if (isBotRunning){
+        if (logUpdateDebounce) return;
+        logUpdateDebounce = setTimeout(()=>{ logUpdateDebounce=null; fetchTradeHistory().catch(()=>{}); }, 1500);
+      }
+    }
+    function formatTs(ts){
+      const safe=(typeof ts==='string' && !/[Z+\-]\d{2}/.test(ts))? ts+'Z': ts;
+      return new Date(safe).toLocaleString('th-TH',{timeZone:'Asia/Bangkok',hour12:false});
+    }
+    function parseTs(ts){
+      const safe=(typeof ts==='string' && !/[Z+\-]\d{2}/.test(ts))? ts+'Z': ts;
+      return new Date(safe);
+    }
+    function getNumberOrNullEl(el){
+      const v=parseFloat(el.value);
+      return isNaN(v)? null: v;
+    }
+    function formatMoney(n, code='THB'){
+      const x = Number(n)||0;
+      try{ return x.toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+      catch{ return x.toFixed(2); }
+    }
+
+    function currentTf(){
+      // ✅ รวมเป็นที่เดียว — ยึด Duration เสมอ (แก้ปัญหาเกิด method ซ้ำในไฟล์เดิม)
+      const v = parseInt(durationSelect.value || '1', 10);
+      return (v===5||v===1) ? v : 1;
+    }
+
+    function isMBF1mSelected(){
+      const name = String(strategySelect.value||'').toLowerCase();
+      return name.includes('momentum breakout (fake - counter)') && currentTf()===1;
+    }
+    function isAISelected(){
+      const s = String(strategySelect.value||'').toLowerCase();
+      return s.includes('ai model (1m)') || s.includes('ai model (5m)');
+    }
+    function updateAiButtonVisibility(){
+      openAiModalBtn.classList.toggle('d-none', !isAISelected());
+      // MBF 1m ตั้งค่าได้เฉพาะชื่อสตราทีจีตรง
+      document.getElementById('openMbfModalBtn').classList.toggle('d-none', !isMBF1mSelected());
+    }
+
+    function updateUI(){
+      connectBtn.disabled = isConnected;
+      startBotBtn.disabled = !isConnected || isBotRunning;
+      stopBotBtn.disabled  = !isBotRunning;
+
+      connectionStatus.innerHTML = isConnected ? '<span class="status-dot status-connected"></span>Connected'
+                                               : '<span class="status-dot status-disconnected"></span>Disconnected';
+      if(!isConnected) balanceDisplay.textContent = 'Balance: $0.00';
+      updateAiButtonVisibility();
+    }
+
+    function populateAssets(){
+      assetSelectionContainer.innerHTML='';
+      assets.forEach(a=>{
+        assetSelectionContainer.innerHTML +=
+          `<div class="col-md-4 col-6"><div class="form-check">
+            <input class="form-check-input asset-checkbox" type="checkbox" value="${a}" id="asset_${a}">
+            <label class="form-check-label" for="asset_${a}">${a}</label>
+          </div></div>`;
+      });
+    }
+
+    function updateStrategies(){
+      const duration = durationSelect.value;
+      const list = strategies[duration] || [];
+      strategySelect.innerHTML = '';
+      list.forEach(s => { const o=document.createElement('option'); o.value=s; o.textContent=s; strategySelect.appendChild(o); });
+      updateAiButtonVisibility();
+    }
+
+    async function apiRequest(endpoint, options={}){
+      const r = await fetch(`${API_BASE_URL}${endpoint}`, options);
+      const data = await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(data.detail || data.message || 'Unknown error');
+      return data;
+    }
+
+    // ===== status & history =====
+    function summarizeStats(trs){
+      let pnl=0,w=0,l=0,d=0,mx=0;
+      (trs||[]).forEach(t=>{
+        if(typeof t.profit === 'number') pnl+=t.profit;
+        if(t.result==='WIN') w++; else if(t.result==='LOSE') l++; else if(t.result==='EQUAL') d++;
+        const ms = Number(t.mg_step||0); if(!isNaN(ms)&&ms>mx) mx=ms;
+      });
+      return {pnl,w,l,d,max:mx};
+    }
+
+    function getSessionAnchorTs(){
+      return localStorage.getItem('gowin_session_anchor_ts') || '';
+    }
+    function setSessionAnchorNow(){
+      localStorage.setItem('gowin_session_anchor_ts', new Date().toISOString());
+      updateSessionSince();
+    }
+    function setSessionAnchorTo(ts){
+      localStorage.setItem('gowin_session_anchor_ts', ts||'');
+      updateSessionSince();
+    }
+    function updateSessionSince(){
+      const ts = getSessionAnchorTs();
+      document.getElementById('sessionSince').textContent = ts ? formatTs(ts) : '—';
+    }
+
+    async function fetchStatus(){
+      if(!localStorage.getItem('gowinbot_license')) return;
+      try{
+        const d = await apiRequest('/status');
+        const hudMax = (d?.hud_max_step ?? d?.stats?.max_step ?? 0);
+        hudMG.textContent = Number.isInteger(hudMax) ? hudMax : parseInt(hudMax || 0, 10);
+        isConnected  = !!d.is_connected;
+        isBotRunning = !!d.is_bot_running;
+
+        if(isConnected){
+          const code = d.currency_code || 'THB';
+          const label = d.account_type
+            ? `Balance (${d.account_type}): ${formatMoney(d.balance, code)} ${code}`
+            : `Balance: ${formatMoney(d.balance, code)} ${code}`;
+          balanceDisplay.textContent = label;
+        }
+        updateUI();
+      }catch{
+        isConnected=false; isBotRunning=false; updateUI(); clearInterval(statusInterval);
+      }
+    }
+
+    async function fetchTradeHistory(){
+      try{
+        const d = await apiRequest('/trades?limit=10000');
+        const trs = d.trades || [];
+
+        // table (ล่าสุด 100)
+        tradeHistoryBody.innerHTML = '';
+        trs.slice(0,100).forEach(t=>{
+          const pc = t.profit>0?'text-success':(t.profit<0?'text-danger':'');
+          tradeHistoryBody.innerHTML += `<tr>
+              <td>${formatTs(t.timestamp)}</td>
+              <td>${t.asset}</td>
+              <td>${String(t.direction||'').toUpperCase()}</td>
+              <td>$${Number(t.amount).toFixed(2)}</td>
+              <td>${t.mg_step ?? '-'}</td>
+              <td>${t.result || 'PENDING'}</td>
+              <td class="${pc}">${t.profit!=null? Number(t.profit).toFixed(2): '-'}</td>
+              <td>${t.strategy || '-'}</td>
+          </tr>`;
+        });
+
+        // HUD (ทั้งหมด)
+        const all = summarizeStats(trs);
+        hudPnL.textContent = `$${all.pnl.toFixed(2)}`;
+        hudW.textContent = all.w; hudL.textContent = all.l; hudD.textContent = all.d;
+        // keep hudMG from /status (ไม่ทับ)
+
+        // Session (ตัดตาม anchor)
+        const anchor = getSessionAnchorTs();
+        let sessionRows = trs;
+        if (anchor) {
+          const a = parseTs(anchor).getTime();
+          sessionRows = trs.filter(t => {
+            const tt = parseTs(t.timestamp).getTime();
+            return isFinite(tt) && tt >= a;
+          });
+        }
+        const s = summarizeStats(sessionRows);
+        document.getElementById('sessPnL').textContent = `$${s.pnl.toFixed(2)}`;
+        document.getElementById('sessW').textContent = s.w;
+        document.getElementById('sessL').textContent = s.l;
+        document.getElementById('sessD').textContent = s.d;
+        document.getElementById('sessMax').textContent = s.max;
+        updateSessionSince();
+
+        // ถ้ายังไม่มี anchor ให้ตั้งเป็นรายการล่าสุด
+        if (!anchor && trs.length) {
+          setSessionAnchorTo(trs[0].timestamp);
+        }
+
+        historyUpdatedAt.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+      }catch(e){
+        logMessage('Failed to load trade history.');
+      }
+    }
+
+    function startTradeHistoryAuto(){
+      if (tradeHistoryInterval) clearInterval(tradeHistoryInterval);
+      tradeHistoryInterval = setInterval(fetchTradeHistory, 5000);
+    }
+    function stopTradeHistoryAuto(){
+      if (tradeHistoryInterval) { clearInterval(tradeHistoryInterval); tradeHistoryInterval = null; }
+    }
+
+    // ===== AI status / actions =====
+    function showAIStatus(s){
+      aiName.textContent = s.model_name || '-';
+      aiTf.textContent   = s.timeframe ? `${s.timeframe}m` : '-';
+      aiVersion.textContent = s.version || '-';
+      aiLr.textContent   = s.learning_rate!=null ? Number(s.learning_rate).toFixed(4) : '-';
+      aiAcc.textContent  = s.accuracy!=null ? (s.accuracy*100).toFixed(1)+'%' : '-';
+      aiWin.textContent  = s.win_rate!=null ? (s.win_rate*100).toFixed(1)+'%' : '-';
+      aiEce.textContent  = s.ece!=null ? Number(s.ece).toFixed(3) : '-';
+      aiOrders.textContent = s.orders_since_retrain ?? 0;
+      aiEvery.textContent  = s.auto_every_orders ?? (parseInt(aiEveryInput.value)||40);
+      const pct = Math.min(100, Math.round(((s.orders_since_retrain||0)/(s.auto_every_orders||40))*100));
+      aiProg.style.width = pct + '%';
+      aiLast.textContent = s.last_retrain_ts ? formatTs(s.last_retrain_ts) : '-';
+      const left = Math.max(0,(s.auto_every_orders||40)-(s.orders_since_retrain||0));
+      aiNext.textContent = `${left} orders`;
+      aiAutoSwitch.checked = !!s.auto_enabled;
+      if (s.message){ aiMsg.textContent = s.message; setTimeout(()=>aiMsg.textContent='', 4000); }
+    }
+    async function fetchAIStatus(){
+      try{
+        const tf = currentTf();
+        const d = await apiRequest(`/ai/status?tf=${tf}`);
+        showAIStatus(d);
+      }catch{}
+    }
+    async function setAIAuto(enabled,every){
+      try{
+        const tf = currentTf();
+        const d = await apiRequest('/ai/auto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tf,enabled,every_orders:every})});
+        showAIStatus(d);
+        logMessage(`[AI ${tf}m] Auto-retrain ${enabled?'enabled':'disabled'} @ ${every} orders`);
+      }catch(e){ logMessage('[AI] Failed to set auto: '+e.message); }
+    }
+    async function retrainAI(reason='manual'){
+      try{
+        const tf=currentTf();
+        const d=await apiRequest('/ai/retrain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tf,reason})});
+        showAIStatus(d); logMessage(`[AI ${tf}m] Retrain triggered (${reason})`);
+      }catch(e){ logMessage('[AI] Retrain failed: '+e.message); }
+    }
+    async function calibrateAI(reason='manual'){
+      try{
+        const tf=currentTf();
+        const d=await apiRequest('/ai/calibrate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tf,method:'auto',reason})});
+        showAIStatus(d); logMessage(`[AI ${tf}m] Calibration triggered (${reason})`);
+      }catch(e){ logMessage('[AI] Calibration failed: '+e.message); }
+    }
+
+    // ===== Indicator config =====
+    async function loadIndicatorCfg(tf){ return await apiRequest(`/indicators/get?tf=${tf}`); }
+    async function saveIndicatorCfg(tf, cfg){
+      return await apiRequest('/indicators/set', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ tf, config: cfg })
+      });
+    }   
+
+  // --- helpers แบบกัน null ---
+  function G(id){ return document.getElementById(id); }
+  function setChk(id, v){ const el = G(id); if (el) el.checked = !!v; }
+  function setVal(id, v){ const el = G(id); if (el != null) el.value = v; }
+  function getChk(id, def=false){ const el = G(id); return el ? !!el.checked : def; }
+  function getNum(id, def=0){ const el = G(id); const n = el ? parseFloat(el.value) : NaN; return Number.isFinite(n) ? n : def; }
+  function getVal(id, def=''){ const el = G(id); return el ? el.value : def; }
+
+  // ป้องกันกรณี modal ยังไม่อยู่ใน DOM
+  function indicatorModalReady(){
+    return !!G('indicatorParamsModal');
+  }
+
+  // --- NEW: fillIndicatorForm แบบกัน null และ normalize config ---
+  function fillIndicatorForm(cfgRaw){
+    if (!indicatorModalReady()) return; // ถ้า modal ไม่มี ให้ข้าม
+    const cfg = cfgRaw || {};
+
+    // สวิตช์หลัก
+    setChk('ind_use', !!cfg.use);
+
+    // MA
+    const ma = cfg.ma || {};
+    setChk('ma_enabled', !!ma.enabled);
+    setVal('ma_type',   ma.type ?? 'EMA');
+    setVal('ma_length', Number.isFinite(ma.length)? ma.length : 50);
+    setVal('ma_bias',   ma.bias ?? 'any');
+    setVal('ma_slope',  ma.slope ?? 'any');
+
+    // MACD
+    const macd = cfg.macd || {};
+    setChk('macd_enabled', !!macd.enabled);
+    setVal('macd_fast',   Number.isFinite(macd.fast)? macd.fast : 12);
+    setVal('macd_slow',   Number.isFinite(macd.slow)? macd.slow : 26);
+    setVal('macd_signal', Number.isFinite(macd.signal)? macd.signal : 9);
+    setVal('macd_mode',   macd.mode ?? 'confirm');
+
+    // Ichimoku
+    const ich = cfg.ichimoku || {};
+    setChk('ich_enabled', !!ich.enabled);
+    setVal('ich_tenkan', Number.isFinite(ich.tenkan)? ich.tenkan : 9);
+    setVal('ich_kijun',  Number.isFinite(ich.kijun)?  ich.kijun  : 26);
+    setVal('ich_sb',     Number.isFinite(ich.senkou_b)? ich.senkou_b : 52);
+    setVal('ich_mode',   ich.mode ?? 'trend');
+
+    // RSI
+    const rsi = cfg.rsi || {};
+    setChk('rsi_enabled', !!rsi.enabled);
+    setVal('rsi_len', Number.isFinite(rsi.length)? rsi.length : 14);
+    setVal('rsi_ob',  Number.isFinite(rsi.ob)?     rsi.ob     : 70);
+    setVal('rsi_os',  Number.isFinite(rsi.os)?     rsi.os     : 30);
+    setVal('rsi_mode', rsi.mode ?? 'filter');
+
+    // Stoch
+    const st = cfg.stoch || {};
+    setChk('stoch_enabled', !!st.enabled);
+    setVal('stoch_k',  Number.isFinite(st.k)?      st.k      : 14);
+    setVal('stoch_d',  Number.isFinite(st.d)?      st.d      : 3);
+    setVal('stoch_s',  Number.isFinite(st.smooth)? st.smooth : 3);
+    setVal('stoch_ob', Number.isFinite(st.ob)?     st.ob     : 80);
+    setVal('stoch_os', Number.isFinite(st.os)?     st.os     : 20);
+    setVal('stoch_mode', st.mode ?? 'off');
+
+    // Bollinger
+    const bb = cfg.bb || {};
+    setChk('bb_enabled', !!bb.enabled);
+    setVal('bb_len', Number.isFinite(bb.length)? bb.length : 20);
+    setVal('bb_k',   Number.isFinite(bb.k)?      bb.k     : 2.0);
+    setVal('bb_mode', bb.mode ?? 'squeeze');
+
+    // ATR
+    const atr = cfg.atr || {};
+    setChk('atr_enabled', !!atr.enabled);
+    setVal('atr_len', Number.isFinite(atr.length)? atr.length : 14);
+    setVal('atr_min', Number.isFinite(atr.min_atr)? atr.min_atr : 0);
+
+    // VWAP/OBV
+    const vwap = cfg.vwap || {};
+    const obv  = cfg.obv  || {};
+    setChk('vwap_enabled', !!vwap.enabled);
+    setChk('obv_enabled',  !!obv.enabled);
+    setVal('obv_mode', obv.mode ?? 'confirm');
+
+    // Volume Profile
+    const vp = cfg.volprof || {};
+    setChk('vp_enabled', !!vp.enabled);
+    setVal('vp_bins', Number.isFinite(vp.bins)? vp.bins : 24);
+
+    // แสดงรายชื่อ indicator ที่ active
+    const active = [];
+    if (getChk('ma_enabled'))    active.push('MA');
+    if (getChk('macd_enabled'))  active.push('MACD');
+    if (getChk('ich_enabled'))   active.push('Ichimoku');
+    if (getChk('rsi_enabled'))   active.push('RSI');
+    if (getChk('stoch_enabled')) active.push('Stoch');
+    if (getChk('bb_enabled'))    active.push('BB');
+    if (getChk('atr_enabled'))   active.push('ATR');
+    if (getChk('vwap_enabled'))  active.push('VWAP');
+    if (getChk('obv_enabled'))   active.push('OBV');
+    if (getChk('vp_enabled'))    active.push('VolProfile');
+
+    const indActiveList = G('indActiveList');
+    if (indActiveList) indActiveList.textContent = active.length ? active.join(', ') : '(all off)';
+  }
+
+  // --- NEW: readIndicatorForm แบบกัน null ---
+  function readIndicatorForm(){
+    if (!indicatorModalReady()){
+      return {use:false};
+    }
+    return {
+      use: getChk('ind_use', false),
+      ma:   { enabled: getChk('ma_enabled'),  type: getVal('ma_type','EMA'), length: getNum('ma_length',50), source: 'close', bias: getVal('ma_bias','any'), slope: getVal('ma_slope','any') },
+      macd: { enabled: getChk('macd_enabled'), fast: getNum('macd_fast',12), slow: getNum('macd_slow',26), signal: getNum('macd_signal',9), mode: getVal('macd_mode','confirm') },
+      ichimoku: { enabled: getChk('ich_enabled'), tenkan: getNum('ich_tenkan',9), kijun: getNum('ich_kijun',26), senkou_b: getNum('ich_sb',52), mode: getVal('ich_mode','trend') },
+      rsi:  { enabled: getChk('rsi_enabled'), length: getNum('rsi_len',14), ob: getNum('rsi_ob',70), os: getNum('rsi_os',30), mode: getVal('rsi_mode','filter') },
+      stoch:{ enabled: getChk('stoch_enabled'), k: getNum('stoch_k',14), d: getNum('stoch_d',3), smooth: getNum('stoch_s',3), ob: getNum('stoch_ob',80), os: getNum('stoch_os',20), mode: getVal('stoch_mode','off') },
+      bb:   { enabled: getChk('bb_enabled'), length: getNum('bb_len',20), k: parseFloat(getVal('bb_k','2.0'))||2.0, mode: getVal('bb_mode','squeeze') },
+      atr:  { enabled: getChk('atr_enabled'), length: getNum('atr_len',14), min_atr: parseFloat(getVal('atr_min','0'))||0 },
+      vwap: { enabled: getChk('vwap_enabled') },
+      obv:  { enabled: getChk('obv_enabled'), mode: getVal('obv_mode','confirm') },
+      volprof: { enabled: getChk('vp_enabled'), bins: getNum('vp_bins',24) }
+    };
+  }
+
+
+    async function refreshLiveIndicators(){
+      try{
+        // ใช้ asset อันแรกที่ติ๊ก (ถ้าไม่เลือก ใช้ EURUSD)
+        const picked = document.querySelector('.asset-checkbox:checked');
+        const asset = picked ? picked.value : 'EURUSD';
+        const tf = currentTf();
+        const res = await fetch(`${API_BASE_URL}/indicators/live`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ asset, tf, n: 240 })
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok) throw new Error(data?.detail || 'live error');
+
+        const v = data.values || {};
+        const parts = [];
+        if (v.ma && typeof v.ma.value === 'number') {
+          const arrow = v.ma.slope > 0 ? '▲' : (v.ma.slope < 0 ? '▼' : '＝');
+          parts.push(`MA(${v.ma.type}${v.ma.length}) ${v.ma.value.toFixed(5)} ${arrow}`);
+        }
+        if (v.macd && typeof v.macd.hist === 'number') parts.push(`MACD ${v.macd.hist >= 0 ? '+' : '-'}${Math.abs(v.macd.hist).toFixed(5)}`);
+        if (v.ichimoku && v.ichimoku.position) parts.push(`Ichimoku ${v.ichimoku.position}`);
+        if (typeof v.rsi === 'number') parts.push(`RSI ${v.rsi.toFixed(1)}`);
+        if (v.bb && typeof v.bb.mid === 'number') {
+          const last = (v.last ?? data.last ?? null);
+          const pos = (last != null)? (last > v.bb.upper ? 'above' : (last < v.bb.lower ? 'below' : 'inside')) : 'inside';
+          parts.push(`BB ${pos}`);
+        }
+        if (v.stoch && typeof v.stoch.k === 'number' && typeof v.stoch.d === 'number') parts.push(`Stoch ${v.stoch.k.toFixed(0)}/${v.stoch.d.toFixed(0)}`);
+        if (typeof v.atr === 'number') parts.push(`ATR ${v.atr.toFixed(5)}`);
+        if (typeof v.obv === 'number') parts.push(`OBV ${v.obv >= 0 ? '+' : ''}${v.obv}`);
+        const el = document.getElementById('indLiveList');
+        if (el) el.textContent = parts.length ? parts.join(' • ') : '—';
+      }catch{ const el=document.getElementById('indLiveList'); if(el) el.textContent='—'; }
+    }
+
+    // ===== bindings =====
+    sigSense.addEventListener('input', ()=> sigSenseVal.textContent = sigSense.value);
+    mgMode.addEventListener('change', ()=> { mgCustom.disabled = mgMode.value !== 'Custom'; });
+    openAiModalBtn.addEventListener('click', ()=>{
+      const is5 = currentTf() === 5;
+      (is5 ? tab5mBtn : tab1mBtn).click();
+      aiModal.show();
+    });
+    aiDefaultsBtn.addEventListener('click', ()=> resetThresholds());
+
+    openIndicatorModalBtn.addEventListener('click', async ()=>{
+      try{
+        const cfg = await loadIndicatorCfg(currentTf());
+        fillIndicatorForm(cfg || {});
+        indicatorModal.show();
+      }catch(e){ logMessage('Load indicator config failed: '+e.message); }
+    });
+    saveIndBtn.addEventListener('click', async ()=>{
+      try{
+        const cfg = readIndicatorForm();
+        const d = await saveIndicatorCfg(currentTf(), cfg);
+        fillIndicatorForm(cfg);
+        logMessage(d.message || 'Indicator parameters saved.');
+        indicatorModal.hide();
+      }catch(e){ logMessage('Save indicators failed: '+e.message); }
+    });
+
+    openAssetSettingsBtn.addEventListener('click', ()=>{
+      const v = parseInt(localStorage.getItem('gowin_max_orders'));
+      if (Number.isFinite(v) && v>0) maxOrdersInput.value = v; else maxOrdersInput.value = '';
+      assetSettingsModal.show();
+    });
+    saveAssetSettingsBtn.addEventListener('click', ()=>{
+      const v = parseInt(maxOrdersInput.value);
+      if (Number.isFinite(v) && v>0) localStorage.setItem('gowin_max_orders', String(v));
+      else localStorage.removeItem('gowin_max_orders');
+      assetSettingsModal.hide();
+      logMessage('Saved order settings.');
+    });
+
+    // license
+    async function verifyAndProceed(licenseKey) {
+      if (!licenseKey) {
+        licenseError.textContent = 'License key cannot be empty.';
+        licenseError.classList.remove('d-none');
+        return false;
+      }
+      try{
+        const d = await apiRequest('/license/check', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ license_key: licenseKey })
+        });
+        localStorage.setItem('gowinbot_license', licenseKey);
+        licenseError.classList.add('d-none');
+        licenseModal.hide();
+        logMessage(d.message || 'License verified.');
+        return true;
+      }catch(e){
+        licenseError.textContent = e.message || 'Invalid license';
+        licenseError.classList.remove('d-none');
+        return false;
+      }
+    }
+    verifyLicenseBtn.addEventListener('click', async ()=>{
+      const ok = await verifyAndProceed(licenseKeyInput.value.trim());
+      if (ok) { await fetchStatus(); }
+    });
+
+    // connect
+    connectBtn.addEventListener('click', async ()=>{
+      const email=document.getElementById('email').value.trim();
+      const password=document.getElementById('password').value;
+      const accountType=document.getElementById('accountType').value;
+      if(!email || !password){ logMessage('Email and password are required.'); return; }
+      logMessage('Connecting to IQ Option...');
+      try{
+        const d=await apiRequest('/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,account_type:accountType})});
+        logMessage(d.message || 'Connected.');
+        isConnected = true; updateUI();
+        statusInterval=setInterval(fetchStatus,5000);
+        setInterval(()=>{ if (isConnected) refreshLiveIndicators(); }, 5000);
+
+        if (Object.prototype.hasOwnProperty.call(d, 'balance')) {
+          const code = d.currency_code || 'THB';
+          const label = d.account_type? `Balance (${d.account_type}): ${formatMoney(d.balance, code)} ${code}` : `Balance: ${formatMoney(d.balance, code)} ${code}`;
+          balanceDisplay.textContent = label;
+        }
+        await fetchStatus(); await fetchTradeHistory(); await fetchAIStatus();
+
+        // โหลด indicator stat
+        try{ const cfg = await loadIndicatorCfg(currentTf()); fillIndicatorForm(cfg); }catch{}
+      }catch(e){ logMessage('Connect failed: '+e.message); }
+    });
+
+    // start bot
+    startBotBtn.addEventListener('click', async ()=>{
+      const selectedAssets = Array.from(document.querySelectorAll('.asset-checkbox:checked')).map(el=>el.value);
+      if(selectedAssets.length===0){ logMessage('Please select at least one asset to trade.'); return; }
+
+      // thresholds from localStorage
+      const TH_DEFAULTS = { ai1m_conf:0.60, ai1m_gap:0.10, ai5m_conf:0.60, ai5m_gap:0.12 };
+      const ai1m_conf = parseFloat(localStorage.getItem("gowin_ai1m_conf")) || TH_DEFAULTS.ai1m_conf;
+      const ai1m_gap  = parseFloat(localStorage.getItem("gowin_ai1m_gap"))  || TH_DEFAULTS.ai1m_gap;
+      const ai5m_conf = parseFloat(localStorage.getItem("gowin_ai5m_conf")) || TH_DEFAULTS.ai5m_conf;
+      const ai5m_gap  = parseFloat(localStorage.getItem("gowin_ai5m_gap"))  || TH_DEFAULTS.ai5m_gap;
+
+      const payload = {
+        strategy_name: strategySelect.value,
+        duration: currentTf(),
+        assets: selectedAssets,
+        amount: parseFloat(document.getElementById('amount').value),
+        block_start: document.getElementById('blockStart').value || null,
+        block_end: document.getElementById('blockEnd').value || null,
+        martingale_mode: mgMode.value,
+        martingale_scope: mgScope.value,
+        martingale_custom_amounts: (mgMode.value === 'Custom') ? (mgCustom.value||'').split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n)) : null,
+        take_profit: getNumberOrNullEl(tpAmount),
+        stop_loss: getNumberOrNullEl(slAmount),
+        sensitivity: parseInt(sigSense.value),
+        ai_auto_retrain: aiAutoSwitch.checked,
+        ai_retrain_every_orders: parseInt(aiEveryInput.value)||40,
+        ai1m_conf, ai1m_gap, ai5m_conf, ai5m_gap,
+        max_orders_per_cycle: (parseInt(localStorage.getItem('gowin_max_orders')) || null),
+        lead_time_sec: parseInt(leadTimeSec.value)||5,
+        trend_filter_mode: trendFilterMode.value,
+        micro_filter_5m: !!microFilter5m.checked
+      };
+
+      // ถ้าเป็น MBF 1m เติม min_conf/min_gap ที่นี่ (แทน monkey-patch เดิม)
+      if (isMBF1mSelected()){
+        const c = parseFloat(localStorage.getItem('gowin_mbf1m_conf') || '0.55') || 0.55;
+        const g = parseFloat(localStorage.getItem('gowin_mbf1m_gap')  || '0.08') || 0.08;
+        payload.min_conf = c; payload.min_gap = g;
+        logMessage(`MBF thresholds → 1m: conf=${c.toFixed(2)}, gap=${g.toFixed(2)}`);
+      }
+
+      logMessage(`Starting bot with strategy: ${payload.strategy_name} (sensitivity ${payload.sensitivity}).`);
+      if (payload.strategy_name.toLowerCase().includes('ai model')) {
+        logMessage(`AI thresholds → 1m: conf=${ai1m_conf.toFixed(2)}, gap=${ai1m_gap.toFixed(2)} | 5m: conf=${ai5m_conf.toFixed(2)}, gap=${ai5m_gap.toFixed(2)}`);
+      }
+
+      try{
+        const d = await apiRequest('/bot/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        logMessage(d.message || 'Bot started.');
+        setSessionAnchorNow(); // new session
+        isBotRunning = true; updateUI();
+        fetchStatus(); fetchTradeHistory(); startTradeHistoryAuto();
+        // จบแท่งแรก รอ duration + เผื่อ 7s แล้วดึง history
+        const delayMs=(payload.duration*60+7)*1000; setTimeout(fetchTradeHistory, delayMs);
+        if (aiInterval) clearInterval(aiInterval);
+        aiInterval=setInterval(fetchAIStatus,15000);
+      }catch(e){ logMessage('Start failed: '+e.message); }
+    });
+
+    // stop bot
+    stopBotBtn.addEventListener('click', async ()=>{
+      stopBotBtn.disabled = true; startBotBtn.disabled = true;
+      logMessage('Stopping bot.');
+      try{
+        const d = await apiRequest('/bot/stop',{method:'POST'});
+        logMessage(d.message || 'Bot stopped.');
+      }catch(e){
+        logMessage('Stop failed: '+e.message);
+      }finally{
+        try{ await fetchStatus(); }catch{}
+        isBotRunning = false; updateUI(); stopTradeHistoryAuto();
+      }
+    });
+
+    exportCsvBtn.addEventListener('click', async ()=>{
+      logMessage('Exporting to CSV.');
+      try{ const d=await apiRequest('/trades/export',{method:'POST'}); logMessage(d.message || 'Export requested.'); }catch{}
+    });
+
+    document.getElementById('resetSessionBtn').addEventListener('click', ()=>{
+      setSessionAnchorNow(); fetchTradeHistory(); logMessage('Session stats reset.');
+    });
+
+    document.getElementById('exitAppBtn').addEventListener('click', async ()=>{
+      if(confirm('Are you sure you want to exit the application?')){
+        logMessage('Shutting down application...');
+        try{ fetch(`${API_BASE_URL}/system/shutdown`,{method:'POST'}); }catch{}
+        setTimeout(()=>window.close(),1000);
+      }
+    });
+
+    // market hours
+    const openMarketHoursBtn = document.getElementById('openMarketHoursBtn');
+    const marketHoursModalEl = document.getElementById('marketHoursModal');
+    const marketHoursModal = new bootstrap.Modal(marketHoursModalEl);
+    const mhTz = document.getElementById('mhTz');
+    const mhFilter = document.getElementById('mhFilter');
+    const mhTableBody = document.getElementById('mhTableBody');
+
+    let MARKET_HOURS = null;
+    async function loadMarketHours() {
+      try { MARKET_HOURS = await apiRequest('/market-hours'); }
+      catch { MARKET_HOURS = { timezone: 'Asia/Bangkok', assets: {} }; }
+    }
+    function isNowOpenBySchedule(asset, dt = new Date()) {
+      if (!MARKET_HOURS || !MARKET_HOURS.assets) return null;
+      const list = MARKET_HOURS.assets[asset];
+      if (!Array.isArray(list)) return null;
+      const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const dow = dayNames[dt.getDay()];
+      const hm = dt.toTimeString().slice(0,5);
+      const today = list.find(x => x.dow === dow);
+      if (!today || !Array.isArray(today.ranges) || today.ranges.length === 0) return false;
+      return today.ranges.some(([start,end]) => (start<=hm && hm<=end));
+    }
+    function renderMarketHours(){
+      if (!MARKET_HOURS) return;
+      mhTz.textContent = MARKET_HOURS.timezone || 'UTC+7';
+      const q = (mhFilter.value||'').toLowerCase();
+      const rows = [];
+      Object.entries(MARKET_HOURS.assets||{}).forEach(([asset, days])=>{
+        if (q && !asset.toLowerCase().includes(q)) return;
+        (days||[]).forEach(d=>{
+          const openNow = isNowOpenBySchedule(asset);
+          const color = openNow ? 'text-success' : 'text-muted';
+          rows.push(`<tr><td>${asset}</td><td>${d.dow}</td><td class="${color}">${(d.ranges||[]).map(r=>r.join('–')).join(', ')||'-'}</td></tr>`);
+        });
+      });
+      mhTableBody.innerHTML = rows.join('');
+    }
+    openMarketHoursBtn.addEventListener('click', async ()=>{
+      await loadMarketHours(); renderMarketHours(); marketHoursModal.show();
+    });
+    mhFilter.addEventListener('input', renderMarketHours);
+
+    // AI toggles
+    function pushAIAuto(){
+      const every = Math.max(10, parseInt(aiEveryInput.value || '40', 10));
+      setAIAuto(aiAutoSwitch.checked, every);
+    }
+    aiAutoSwitch.addEventListener('change', pushAIAuto);
+    aiEveryInput.addEventListener('change', pushAIAuto);
+    aiEveryInput.addEventListener('blur', pushAIAuto);
+    aiRetrainBtn.addEventListener('click', async ()=>{ aiRetrainBtn.disabled = true; try{ await retrainAI('manual'); } finally{ aiRetrainBtn.disabled=false; } });
+    aiCalibBtn.addEventListener('click',  async ()=>{ aiCalibBtn.disabled  = true; try{ await calibrateAI('manual'); } finally{ aiCalibBtn.disabled=false; } });
+
+    // thresholds store
+    const TH_KEYS = ["ai1m_conf","ai1m_gap","ai5m_conf","ai5m_gap"];
+    const TH_DEFAULTS = { ai1m_conf:0.60, ai1m_gap:0.10, ai5m_conf:0.60, ai5m_gap:0.12 };
+    function loadThresholds(){
+      TH_KEYS.forEach(k=>{
+        const el=document.getElementById(k), label=document.getElementById(k+'_val');
+        let v=parseFloat(localStorage.getItem('gowin_'+k));
+        if(!isFinite(v)) v=TH_DEFAULTS[k];
+        if(el) el.value=v; if(label) label.textContent=v.toFixed(2);
+      });
+    }
+    function bindThresholds(){
+      TH_KEYS.forEach(k=>{
+        const el=document.getElementById(k), label=document.getElementById(k+'_val');
+        if(!el) return;
+        el.addEventListener('input', ()=>{
+          const v=parseFloat(el.value);
+          localStorage.setItem('gowin_'+k, String(v));
+          if(label) label.textContent=v.toFixed(2);
+        });
+      });
+    }
+    function resetThresholds(){
+      Object.entries(TH_DEFAULTS).forEach(([k,v])=> localStorage.setItem('gowin_'+k, String(v)) );
+      loadThresholds();
+    }
+
+    // init
+    function ensureDefaults(){
+      populateAssets();
+      updateStrategies();
+      updateUI();
+      sigSenseVal.textContent = sigSense.value;
+      // license modal auto
+      const savedLic = localStorage.getItem('gowinbot_license');
+      if (!savedLic) {
+        licenseModal.show();
+      } else {
+        licenseKeyInput.value = savedLic;
+        verifyAndProceed(savedLic).then(ok => { if(!ok) licenseModal.show(); });
+      }
+      // on history tab shown
+      document.querySelector('a[data-bs-toggle="tab"][href="#historyTab"]').addEventListener('shown.bs.tab', fetchTradeHistory);
+      // heartbeat log
+      heartbeatInterval = setInterval(()=>{ if (isBotRunning) logMessage('⏱ Heartbeat: bot running.'); }, 60000);
+
+      loadThresholds(); bindThresholds();
+      // indicator stat
+      loadIndicatorCfg(1).then(fillIndicatorForm).catch(()=>{});
+      // session anchor
+      if (!getSessionAnchorTs()) setSessionAnchorNow();
+
+      // preload HWID
+      fetch(`${API_BASE_URL}/system/hwid`).then(r=>r.json()).then(d=>{ hwidDisplay.textContent = d.hwid || d.id || '-'; }).catch(()=>{});
+    }
+
+    durationSelect.addEventListener('change', updateStrategies);
+    strategySelect.addEventListener('change', updateAiButtonVisibility);
+
+    ensureDefaults();
+
+  })();
+  </script>
+  <!-- ===== GowinBot Ultra : AUGMENT PACK v1 (non-destructive) ===== -->
+<style id="gb-augment-styles">
+  .gb-card { background:#1e1e1e;border:1px solid #333;border-radius:.5rem; }
+  .gb-card .gb-hd{ padding:.75rem 1rem;border-bottom:1px solid #2b2b2b;display:flex;align-items:center;gap:.5rem }
+  .gb-card .gb-bd{ padding:1rem }
+  .gb-pill{display:inline-flex;align-items:center;gap:.5rem;padding:.2rem .6rem;border-radius:999px;border:1px solid #333;background:#222;font-size:.85rem}
+  .gb-dot{width:.6rem;height:.6rem;border-radius:50%;display:inline-block}
+  .gb-open{color:#39d353}.gb-open .gb-dot{background:#39d353}
+  .gb-close{color:#bbb}.gb-close .gb-dot{background:#666}
+  .gb-up{color:#3fb950}.gb-down{color:#ff6b6b}.gb-flat{color:#c9d1d9}
+  #gb-asset-table td,#gb-asset-table th{vertical-align:middle}
+  #gb-asset-table .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace}
+</style>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- CONFIG ----------
+  const API = 'http://127.0.0.1:9000'; // ใช้ endpoint เดียวกับหน้าเดิม
+  const REFRESH_MS = 10000;
+
+  // ถ้าไฟล์เดิมมีรายการ assets แล้ว ให้ใช้ของเดิม ไม่งั้นใช้ fallback ชุดนี้
+  const FALLBACK_ASSETS = ['XAUUSD','EURUSD','EURGBP','EURJPY','USDJPY','GBPUSD','AUDUSD',
+                           'XAUUSD-OTC','EURUSD-OTC','AUDCAD-OTC','EURGBP-OTC','GBPUSD-OTC'];
+
+  // ---------- DOM HELPERS ----------
+  const $ = (sel,root=document)=>root.querySelector(sel);
+  const $$ = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
+  const fmtTime = ts => {
+    const safe = (typeof ts==='string' && !/[Z+\-]\d{2}/.test(ts))? ts+'Z' : ts;
+    try{ return new Date(safe).toLocaleString('th-TH',{timeZone:'Asia/Bangkok',hour12:false}); }
+    catch{ return new Date().toLocaleString('th-TH',{timeZone:'Asia/Bangkok',hour12:false}); }
+  };
+  const fmtMoney = n => {
+    const x = Number(n)||0;
+    try{ return x.toLocaleString('th-TH',{minimumFractionDigits:5, maximumFractionDigits:5}); }
+    catch{ return x.toFixed(5); }
+  };
+
+  // ---------- CREATE CARD (once) ----------
+  function ensureAssetBoard(){
+    if (document.getElementById('gb-asset-card')) return;
+
+    // หาตำแหน่งแทรก: หลังการ์ด "Asset Selection" ทางคอลัมน์ขวา ถ้าไม่เจอ ให้ไปท้าย .container-fluid
+    const container = $('.container-fluid') || document.body;
+    let rightCol = $('.container-fluid .row .col-lg-7') || null;
+    if (!rightCol) {
+      rightCol = document.createElement('div');
+      rightCol.className = 'col-lg-7';
+      const row = $('.container-fluid .row') || (()=>{
+        const r = document.createElement('div');
+        r.className = 'row';
+        container.appendChild(r);
+        return r;
+      })();
+      row.appendChild(rightCol);
+    }
+
+    const card = document.createElement('div');
+    card.className = 'card gb-card mb-4';
+    card.id = 'gb-asset-card';
+    card.innerHTML = `
+      <div class="gb-hd">
+        <i class="bi bi-calendar-week"></i>
+        <strong>Asset Live Board</strong>
+        <span class="gb-pill" title="อัปเดตทุก ${Math.round(REFRESH_MS/1000)}s">
+          <i class="bi bi-clock"></i><span id="gb-last">-</span>
+        </span>
+        <div class="ms-auto d-flex gap-2">
+          <button class="btn btn-sm btn-outline-secondary" id="gb-refresh"><i class="bi bi-arrow-repeat"></i> Refresh</button>
+          <button class="btn btn-sm btn-outline-secondary" id="gb-export"><i class="bi bi-download"></i> Export CSV (fix)</button>
+        </div>
+      </div>
+      <div class="gb-bd">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle" id="gb-asset-table">
+            <thead>
+              <tr>
+                <th style="width:14rem">Asset</th>
+                <th>เวลาตลาด</th>
+                <th>สถานะ</th>
+                <th>ราคา</th>
+                <th>เทรนด์ (MA)</th>
+              </tr>
+            </thead>
+            <tbody id="gb-rows"><tr><td colspan="5" class="text-muted">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>`;
+    // แทรกต่อจากการ์ด Asset Selection ถ้ามี
+    const assetCard = $('#assetSelection')?.closest('.card');
+    if (assetCard?.parentElement) {
+      assetCard.parentElement.insertBefore(card, assetCard.nextSibling);
+    } else {
+      (rightCol || container).appendChild(card);
+    }
+
+    $('#gb-refresh').addEventListener('click', ()=> refreshBoard(true));
+    $('#gb-export').addEventListener('click', exportCsvFix);
+  }
+
+  // ---------- DATA SOURCES ----------
+  async function api(path, options={}){
+    const res = await fetch(API+path, options);
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data?.detail || data?.message || 'API error');
+    return data;
+  }
+
+  // โหลดชั่วโมงตลาด (ใช้ร่วมกับ Market Hours modal ของเดิม)
+  let marketHours = null;
+  
+
+  // คู่เงินที่เลือกจาก checkbox เดิม ถ้าไม่เลือก ใช้ fallback
+  function getActiveAssets(){
+    const picked = $$('.asset-checkbox:checked').map(x=>x.value);
+    if (picked.length) return picked;
+    // ถ้าหน้าเดิมมีตัวแปร assets (แบบในสคริปต์เดิม) ใช้มันก่อน
+    if (Array.isArray(window.assets) && window.assets.length) return window.assets.slice();
+    return FALLBACK_ASSETS.slice(0, 12); // จำกัดเพื่อความลื่น
+  }
+
+  // timeframe ปัจจุบัน ยึด select เดิม (1m/5m)
+  function currentTf(){
+    const el = document.getElementById('duration');
+    const v = parseInt(el?.value || '1', 10);
+    return (v===5||v===1) ? v : 1;
+  }
+
+  // ใช้ /indicators/live เพื่ออ่าน last price + MA slope
+  async function fetchAssetLive(asset){
+    const tf = currentTf();
+    const payload = { asset, tf, n: 240 };
+    const res = await fetch(API+'/indicators/live',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok) throw new Error(data?.detail || 'live error');
+    // โครงสร้างตาม UI เดิม (อ้าง last/ma.slope) 
+    const v = data.values || {};
+    const last = (v.last ?? data.last ?? null);
+    let trendTxt = 'flat', trendClass = 'gb-flat';
+    if (v.ma && typeof v.ma.slope === 'number') {
+      if (v.ma.slope > 0) { trendTxt = 'up'; trendClass = 'gb-up'; }
+      else if (v.ma.slope < 0) { trendTxt = 'down'; trendClass = 'gb-down'; }
+    }
+    return { last, trendTxt, trendClass };
+  }
+
+/* === REPLACE these two functions in AUGMENT PACK === */
+
+// เรียกครั้งเดียวพอ: ถ้า 404 จะหยุดเรียกถาวร (ไม่สแปม)
+let MARKET_HOURS = null;
+let MH_UNAVAILABLE = false;
+async function ensureMarketHours(){
+  if (MH_UNAVAILABLE) return null;
+  if (MARKET_HOURS)   return MARKET_HOURS;
+  try{
+    const res = await fetch(API + '/market/hours');      // alias ที่เราเพิ่งเพิ่มฝั่ง backend
+    if (res.status === 404){ MH_UNAVAILABLE = true; return null; }
+    const d = await res.json().catch(()=>null);
+    // d = {"timezone":"Asia/Bangkok","hours":{ ASSET: {Mon:["HH:MM-HH:MM", ...], ...} }}
+    MARKET_HOURS = (d && d.hours) ? d.hours : null;
+    if (!MARKET_HOURS) MH_UNAVAILABLE = true;
+    return MARKET_HOURS;
+  }catch{
+    MH_UNAVAILABLE = true;
+    return null;
+  }
+}
+
+/**
+ * เช็ค “เปิด/ปิด” แบบไม่เพี้ยนโซนเวลา:
+ * - คำนวณ "นาทีตั้งแต่เที่ยงคืน (UTC+7)" ด้วย Intl.DateTimeFormat (ไม่สร้าง Date จากสตริง)
+ * - รองรับช่วงข้ามเที่ยงคืน เช่น "23:00-02:00"
+ * - ตัด space/day key ให้พอดี ("Mon"/"Tue"/... ตามไฟล์ JSON)
+ */
+function isOpenNow(asset, hours){
+  if (!hours || !hours[asset]) return { open: null, label: '-' };
+
+  // นาทีตั้งแต่ 00:00 ของโซน Asia/Bangkok
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Bangkok',
+    hour12: false, hour: '2-digit', minute: '2-digit', weekday: 'short'
+  });
+  const parts = fmt.formatToParts(new Date());
+  const hh   = Number(parts.find(p=>p.type==='hour')?.value || '0');
+  const mm   = Number(parts.find(p=>p.type==='minute')?.value || '0');
+  const dowS = (parts.find(p=>p.type==='weekday')?.value || '').slice(0,3); // Sun/Mon/Tue/...
+  const nowMin = hh*60 + mm;
+
+  // เอา slot ของวันนั้น (ถ้า key มี space แปลกๆ จะ trim)
+  const dayKey = ({Sun:'Sun',Mon:'Mon',Tue:'Tue',Wed:'Wed',Thu:'Thu',Fri:'Fri',Sat:'Sat'})[dowS] || dowS;
+  const slots  = (hours[asset][dayKey] || []).map(s => String(s).trim());
+
+  let open = false;
+  for (const s of slots){
+    const [a,b] = s.split('-'); if (!a || !b) continue;
+    const [ah,am] = a.split(':').map(x=>parseInt(x,10));
+    const [bh,bm] = b.split(':').map(x=>parseInt(x,10));
+    if ([ah,am,bh,bm].some(n=>!Number.isFinite(n))) continue;
+
+    const start = ah*60 + am;
+    const end   = bh*60 + bm;
+
+    // ช่วงปกติ
+    if (start <= end){
+      if (start <= nowMin && nowMin <= end) { open = true; break; }
+    }else{
+      // ช่วงข้ามเที่ยงคืน เช่น 23:00-02:00
+      if (nowMin >= start || nowMin <= end) { open = true; break; }
+    }
+  }
+  return { open, label: open ? 'เปิด' : 'ปิด' };
+}
+/* === end replacement === */
+
+  // ---------- RENDER ----------
+  function renderRows(items){
+    const tb = document.getElementById('gb-rows');
+    if (!tb) return;
+    if (!items.length){
+      tb.innerHTML = `<tr><td colspan="5" class="text-muted">ไม่พบคู่เงินที่เลือก</td></tr>`;
+      return;
+    }
+    const rows = items.map(it=>{
+      const statusClass = it.market?.open ? 'gb-open' : 'gb-close';
+      const statusText = it.market?.open ? 'เปิด' : (it.market?.open===false ? 'ปิด' : '-');
+      return `<tr>
+        <td><strong>${it.asset}</strong></td>
+        <td class="text-muted">${fmtTime(new Date())}</td>
+        <td><span class="gb-pill ${statusClass}"><span class="gb-dot"></span>${statusText}</span></td>
+        <td class="mono">${it.last!=null ? fmtMoney(it.last) : '-'}</td>
+        <td class="${it.trendClass} text-capitalize">${it.trendTxt}</td>
+      </tr>`;
+    });
+    tb.innerHTML = rows.join('');
+    const label = document.getElementById('gb-last');
+    if (label) label.textContent = new Date().toLocaleTimeString('th-TH',{timeZone:'Asia/Bangkok',hour12:false});
+  }
+
+  // ---------- MAIN REFRESH ----------
+  let timer=null;
+  async function refreshBoard(force=false){
+    try{
+      const assets = getActiveAssets();
+      if (!assets.length){ renderRows([]); return; }
+      const hours = await ensureMarketHours().catch(()=>null);
+      const out = [];
+      // ดึงแบบขนาน
+      await Promise.all(assets.map(async a=>{
+        try{
+          const live = await fetchAssetLive(a);
+          out.push({ asset:a, last: live.last, trendTxt: live.trendTxt, trendClass: live.trendClass,
+                     market: isOpenNow(a, hours) });
+        }catch{ out.push({ asset:a, last:null, trendTxt:'flat', trendClass:'gb-flat', market:{open:null} }); }
+      }));
+      renderRows(out);
+    }catch(e){
+      renderRows([]);
+    }finally{
+      if (force===true) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(refreshBoard, REFRESH_MS);
+    }
+  }
+
+  // ---------- CSV EXPORT (fix ถ้าปุ่มเดิม error) ----------
+  async function exportCsvFix(){
+    try{
+      const d = await api('/trades?limit=10000');
+      const trs = d.trades || [];
+      if (!trs.length) { alert('ยังไม่มีประวัติออเดอร์'); return; }
+      const header = ['timestamp','asset','direction','amount','mg_step','result','profit','strategy'];
+      const lines = [header.join(',')];
+      trs.forEach(t=>{
+        const row = [
+          t.timestamp ?? '',
+          t.asset ?? '',
+          String(t.direction||'').toUpperCase(),
+          (t.amount!=null? Number(t.amount).toFixed(2) : ''),
+          (t.mg_step ?? ''),
+          (t.result ?? ''),
+          (t.profit!=null? Number(t.profit).toFixed(2) : ''),
+          (t.strategy ?? '')
+        ].map(x => {
+          const s = String(x);
+          if (/[",\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+          return s;
+        });
+        lines.push(row.join(','));
+      });
+      const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `trade_history_${Date.now()}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }catch(e){
+      alert('Export ล้มเหลว: '+(e.message||'unknown'));
+    }
+  }
+
+  // ---------- BOOT ----------
+  ensureAssetBoard();
+  refreshBoard();
+  // ถ้าผู้ใช้เปลี่ยน checkbox asset / timeframe ให้รีเฟรชทันที
+  document.addEventListener('change', (ev)=>{
+    if (ev.target && (ev.target.classList?.contains('asset-checkbox') || ev.target.id==='duration')){
+      refreshBoard(true);
+    }
+  });
+})();
+</script>
+<!-- ===== /AUGMENT PACK ===== -->
+
+</body>
+</html>

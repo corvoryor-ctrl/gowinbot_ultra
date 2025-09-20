@@ -1,0 +1,79 @@
+{
+  "use": false,
+  "ma": {
+    "enabled": false,
+    "type": "EMA",
+    "length": 12,
+    "source": "close",
+    "bias": "any",
+    "slope": "any"
+  },
+  "macd": {
+    "enabled": false,
+    "fast": 4,
+    "slow": 9,
+    "signal": 4,
+    "mode": "confirm"
+  },
+  "ichimoku": {
+    "enabled": false,
+    "tenkan": 9,
+    "kijun": 26,
+    "senkou_b": 52,
+    "mode": "trend"
+  },
+  "rsi": {
+    "enabled": false,
+    "length": 14,
+    "ob": 70,
+    "os": 30,
+    "mode": "filter"
+  },
+  "stoch": {
+    "enabled": false,
+    "k": 14,
+    "d": 3,
+    "smooth": 3,
+    "ob": 80,
+    "os": 20,
+    "mode": "filter"
+  },
+  "bb": {
+    "enabled": false,
+    "length": 20,
+    "k": 2,
+    "mode": "squeeze"
+  },
+  "atr": {
+    "enabled": false,
+    "length": 14,
+    "min_atr": 0
+  },
+  "vwap": {
+    "enabled": false
+  },
+  "obv": {
+    "enabled": false,
+    "mode": "confirm"
+  },
+  "volprof": {
+    "enabled": false,
+    "bins": 24
+  },
+  "price_action": {
+    "enabled": false,
+    "patterns": [
+      "bullish_engulfing",
+      "bearish_engulfing",
+      "pin_bar",
+      "inside_bar",
+      "morning_star",
+      "evening_star"
+    ],
+    "lookback": 5,
+    "min_body_ratio": 1.2,
+    "min_wick_ratio": 2.0,
+    "confirm": "none",
+    "bias": "any"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "use": true,
+  "ma": {
+    "enabled": false,
+    "type": "EMA",
+    "length": 50,
+    "source": "close",
+    "bias": "any",
+    "slope": "any"
+  },
+  "macd": {
+    "enabled": false,
+    "fast": 12,
+    "slow": 26,
+    "signal": 9,
+    "mode": "confirm"
+  },
+  "ichimoku": {
+    "enabled": false,
+    "tenkan": 9,
+    "kijun": 26,
+    "senkou_b": 52,
+    "mode": "trend"
+  },
+  "rsi": {
+    "enabled": false,
+    "length": 14,
+    "ob": 70,
+    "os": 30,
+    "mode": "filter"
+  },
+  "stoch": {
+    "enabled": false,
+    "k": 14,
+    "d": 3,
+    "smooth": 3,
+    "ob": 80,
+    "os": 20,
+    "mode": "filter"
+  },
+  "bb": {
+    "enabled": false,
+    "length": 20,
+    "k": 2.0,
+    "mode": "squeeze"
+  },
+  "atr": {
+    "enabled": false,
+    "length": 14,
+    "min_atr": 0.0
+  },
+  "vwap": {
+    "enabled": false
+  },
+  "obv": {
+    "enabled": false,
+    "mode": "confirm"
+  },
+  "volprof": {
+    "enabled": false,
+    "bins": 24
+  }
+}
