@@ -2,15 +2,8 @@ name: Build macOS App
 
 on:
   workflow_dispatch:
-    inputs:
-      project_dir:
-        description: "project folder (blank = repo root)"
-        required: false
-        default: ""
-      entrypoint:
-        description: "entry file (e.g. main.py or ai_service.py)"
-        required: false
-        default: "main.py"
+  push:
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -20,75 +13,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Resolve working directory
+      # ยืนยันว่า main.py อยู่ที่ราก repo
+      - name: Verify files
         shell: bash
         run: |
-          set -e
-          REL="${{ github.event.inputs.project_dir }}"
-          [ -z "$REL" ] && REL="."
-          echo "PROJECT_DIR_REL=$REL" >> "$GITHUB_ENV"
-          echo "Using project dir: $REL"
-          find "$REL" -maxdepth 2 -print || true
-
-      - name: Ensure entrypoint exists (auto-create if missing)
-        shell: bash
-        working-directory: ${{ env.PROJECT_DIR_REL }}
-        run: |
-          set -e
-          EP="${{ github.event.inputs.entrypoint }}"
-          [ -z "$EP" ] && EP="main.py"
-          if [ ! -f "$EP" ]; then
-            echo "Creating bootstrap $EP"
-            export EP
-            python - <<'PY'
-import os
-ep = os.environ["EP"]
-content = """import os
-
-def _try_run_ai_service_main():
-    try:
-        from ai_service import main as run_main
-        run_main()
-        return True
-    except Exception:
-        return False
-
-def _try_run_uvicorn_app():
-    app = None
-    try:
-        from ai_service import app as app_obj
-        app = app_obj
-    except Exception:
-        pass
-    if app is None:
-        try:
-            from services.health import app as app_obj
-            app = app_obj
-        except Exception:
-            pass
-    if app is not None:
-        import uvicorn
-        host = os.getenv("HOST", "127.0.0.1")
-        port = int(os.getenv("PORT", "8000"))
-        uvicorn.run(app, host=host, port=port)
-        return True
-    return False
-
-if __name__ == "__main__":
-    if _try_run_ai_service_main():
-        pass
-    elif _try_run_uvicorn_app():
-        pass
-    else:
-        print("No entry found: add ai_service.main() or an ASGI app named `app`")
-"""
-with open(ep, "w", encoding="utf-8") as f:
-    f.write(content)
-print("Wrote", ep)
-PY
+          echo "== repo root listing =="
+          ls -la
+          if [ ! -f "main.py" ]; then
+            echo "❌ main.py not found at repo root (create it or change the filename below)"; exit 1;
           fi
-          echo "ENTRYPOINT=$EP" >> "$GITHUB_ENV"
-          echo "Using entrypoint: $EP"
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -97,62 +30,44 @@ PY
 
       - name: Install dependencies
         shell: bash
-        working-directory: ${{ env.PROJECT_DIR_REL }}
         run: |
           set -e
           python -m pip install --upgrade pip wheel setuptools
           if [ -f requirements.txt ]; then
-            pip install --only-binary=:all: numpy pandas scikit-learn || true
             pip install -r requirements.txt
           else
-            pip install --only-binary=:all: numpy pandas scikit-learn || true
-            pip install fastapi uvicorn[standard] iqoptionapi pandas-ta joblib python-machineid PyNaCl websocket-client pydantic requests python-dotenv
+            pip install fastapi uvicorn[standard] numpy pandas pandas-ta scikit-learn joblib \
+                        python-machineid PyNaCl websocket-client pydantic requests python-dotenv iqoptionapi
           fi
           pip install pyinstaller
-          pip freeze | sort | tee ../pip-freeze.txt || true
 
       - name: Build .app with PyInstaller
         shell: bash
-        working-directory: ${{ env.PROJECT_DIR_REL }}
         run: |
           set -e
           ICON_FLAG=""
-          [ -f app.icns ] && ICON_FLAG="--icon app.icns"
+          if [ -f app.icns ]; then ICON_FLAG="--icon app.icns"; fi
 
           ADD=""
           for f in index.html market_hours.json actives.json ai_meta.json; do
-            [ -e "$f" ] && ADD="$ADD --add-data \"$f:.\""
+            if [ -e "$f" ]; then ADD="$ADD --add-data $f:."; fi
           done
           for d in models strategies services database; do
-            [ -d "$d" ] && ADD="$ADD --add-data \"$d:$d\""
+            if [ -d "$d" ]; then ADD="$ADD --add-data $d:$d"; fi
           done
 
-          HIDE="--hidden-import pandas_ta --hidden-import sklearn --hidden-import iqoptionapi"
+          pyinstaller --noconfirm --clean --windowed \
+            --name bot_app \
+            $ICON_FLAG \
+            --hidden-import pandas_ta --hidden-import sklearn --hidden-import iqoptionapi \
+            $ADD \
+            main.py
 
-          set -x
-          eval pyinstaller --noconfirm --clean \
-               --windowed \
-               --name bot_app \
-               $ICON_FLAG \
-               $HIDE \
-               $ADD \
-               "${{ env.ENTRYPOINT }}"
-          set +x
+          echo "== dist =="
           ls -la dist || true
 
-      - name: Upload app bundle
-        if: always()
+      - name: Upload artifact (.app)
         uses: actions/upload-artifact@v4
         with:
           name: bot_app_macos
-          path: ${{ env.PROJECT_DIR_REL }}/dist/bot_app.app
-
-      - name: Upload diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: diagnostics
-          path: |
-            pip-freeze.txt
-            ${{ env.PROJECT_DIR_REL }}/build
-            ${{ env.PROJECT_DIR_REL }}/dist
+          path: dist/bot_app.app
