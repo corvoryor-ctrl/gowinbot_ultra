@@ -34,22 +34,22 @@ jobs:
           set -e
           python -m pip install --upgrade pip wheel setuptools
 
-          # heavy wheels (รองรับ Py3.11 + macOS/ARM)
+          # heavy wheels ที่เข้ากับ Python 3.11 + macOS/ARM
           pip install --only-binary=:all: "numpy==1.26.4" "pandas==2.1.4" "scikit-learn==1.3.2"
 
-          # ติดตั้งจาก requirements (ตอนนี้ไม่มี python-machineid แบบ pin แล้ว)
+          # ติดตั้งจาก requirements.txt (อย่าให้มี pandas-ta / python-machineid / iqoptionapi อยู่ในไฟล์)
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
 
-          # specific extras
-          pip install --pre "pandas-ta==0.3.14b0" \
-            || pip install "git+https://github.com/twopirllc/pandas-ta@0.3.14b0#egg=pandas-ta"
+          # ติดตั้ง pandas-ta 0.3.14b0 จาก ZIP (ไม่ใช้ git เพื่อกัน auth error)
+          pip install "https://github.com/twopirllc/pandas-ta/archive/refs/tags/0.3.14b0.zip"
 
-          pip install "git+https://github.com/Axxxeel89/iqoptionapi.git#egg=iqoptionapi"
+          # ติดตั้ง iqoptionapi จาก ZIP ของ repo ที่ต้นระบุ (แทน git+)
+          pip install "https://github.com/Axxxeel89/iqoptionapi/archive/refs/heads/master.zip"
 
+          # ไม่ติดตั้ง python-machineid อีกแล้ว (เราใส่โมดูล python_machineid/ เองไว้ในโปรเจกต์แล้ว)
           pip install pyinstaller
-
       - name: Build .app with PyInstaller
         shell: bash
         run: |
