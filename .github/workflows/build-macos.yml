@@ -1,16 +1,13 @@
-New-Item -ItemType Directory -Force -Path .github\workflows | Out-Null
-
-@"
 name: Build macOS App
 
 on:
-  workflow_dispatch: {}      # กดรันเองได้
+  workflow_dispatch:
   push:
-    branches: [ main ]       # หรือจะลบส่วนนี้ถ้าไม่อยาก build ทุก push
+    branches: [ "main" ]
 
 jobs:
   build:
-    runs-on: macos-latest    # macOS ARM64 (M1/M2/M3)
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,8 +15,8 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: "3.11"
+          cache: "pip"
 
       - name: Install dependencies
         run: |
@@ -33,7 +30,7 @@ jobs:
                         "websocket-client>=1.6" "pydantic>=2.0" pyinstaller
           fi
 
-      - name: Build .app with PyInstaller (windowed + icon)
+      - name: Build .app with PyInstaller
         run: |
           pyinstaller --noconfirm --clean \
             --windowed \
@@ -55,8 +52,3 @@ jobs:
         with:
           name: bot_app_macos
           path: dist/bot_app.app
-"@ | Set-Content .github\workflows\build-macos.yml -Encoding UTF8
-
-git add .github\workflows\build-macos.yml
-git commit -m "chore(ci): add macOS build workflow"
-git push
