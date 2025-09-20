@@ -33,12 +33,14 @@ jobs:
         run: |
           set -e
           python -m pip install --upgrade pip wheel setuptools
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            pip install fastapi uvicorn[standard] numpy pandas pandas-ta scikit-learn joblib \
-                        python-machineid PyNaCl websocket-client pydantic requests python-dotenv iqoptionapi
-          fi
+
+          # ติดตั้งแพ็กเกจหนักด้วย wheel ล้วน (เวอร์ชันที่รองรับ Py 3.11 บน macOS ARM)
+          pip install --only-binary=:all: "numpy==1.26.4" "pandas==2.1.4" "scikit-learn==1.3.2"
+
+          # ติดตั้งที่เหลือจาก requirements ที่เราปักเวอร์ชันไว้
+          pip install -r requirements.txt
+
+          # ตัว packager
           pip install pyinstaller
 
       - name: Build .app with PyInstaller
