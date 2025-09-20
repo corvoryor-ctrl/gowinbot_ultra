@@ -23,10 +23,10 @@ jobs:
             echo "❌ main.py not found at repo root (create it or change the filename below)"; exit 1;
           fi
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install dependencies
         shell: bash
@@ -34,24 +34,24 @@ jobs:
           set -e
           python -m pip install --upgrade pip wheel setuptools
 
-          # heavy wheels ที่เข้ากับ Py3.11 + macOS/ARM
-          pip install --only-binary=:all: "numpy==1.26.4" "pandas==2.1.4" "scikit-learn==1.3.2"
+          # ชุด heavy ที่รองรับ Py3.12 + macOS/ARM
+          pip install --only-binary=:all: \
+            "numpy==2.0.2" \
+            "pandas==2.2.2" \
+            "scikit-learn==1.4.2"
 
-          # ติดตั้งจาก requirements.txt (อย่าให้มี pandas-ta / iqoptionapi / python-machineid อยู่ในไฟล์)
+          # ติดตั้งจาก requirements.txt (อย่าใส่ pandas-ta / iqoptionapi / python-machineid ในไฟล์นี้)
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
 
-          echo "== install pandas-ta 0.3.14b0 with fallbacks =="
-          (pip install --pre "pandas-ta==0.3.14b0" --no-input \
-            || pip install "https://github.com/twopirllc/pandas-ta/archive/refs/tags/v0.3.14b0.zip" --no-input \
-            || pip install "https://github.com/twopirllc/pandas-ta/archive/0.3.14b0.zip" --no-input \
-            || pip install "https://github.com/twopirllc/pandas-ta/archive/refs/heads/master.zip" --no-input)
+          # pandas-ta ที่รองรับ Py3.12
+          pip install "pandas-ta==0.4.71b0"
 
-          echo "== install iqoptionapi from your repo ZIP =="
-          pip install "https://github.com/Axxxeel89/iqoptionapi/archive/refs/heads/master.zip" --no-input
+          # iqoptionapi จาก ZIP ตามที่ต้นใช้
+          pip install "https://github.com/Axxxeel89/iqoptionapi/archive/refs/heads/master.zip"
 
-          # เราใช้โมดูลทดแทน python_machineid ภายในโปรเจกต์ ไม่ต้อง pip install
+          # เราใช้โฟลเดอร์ python_machineid/ ภายในโปรเจกต์ แทนการ pip install
           pip install pyinstaller
     
       - name: Build .app with PyInstaller
