@@ -34,22 +34,26 @@ jobs:
           set -e
           python -m pip install --upgrade pip wheel setuptools
 
-          # heavy wheels ที่เข้ากับ Python 3.11 + macOS/ARM
+          # heavy wheels ที่เข้ากับ Py3.11 + macOS/ARM
           pip install --only-binary=:all: "numpy==1.26.4" "pandas==2.1.4" "scikit-learn==1.3.2"
 
-          # ติดตั้งจาก requirements.txt (อย่าให้มี pandas-ta / python-machineid / iqoptionapi อยู่ในไฟล์)
+          # ติดตั้งจาก requirements.txt (อย่าให้มี pandas-ta / iqoptionapi / python-machineid อยู่ในไฟล์)
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
 
-          # ติดตั้ง pandas-ta 0.3.14b0 จาก ZIP (ไม่ใช้ git เพื่อกัน auth error)
-          pip install "https://github.com/twopirllc/pandas-ta/archive/refs/tags/0.3.14b0.zip"
+          echo "== install pandas-ta 0.3.14b0 with fallbacks =="
+          (pip install --pre "pandas-ta==0.3.14b0" --no-input \
+            || pip install "https://github.com/twopirllc/pandas-ta/archive/refs/tags/v0.3.14b0.zip" --no-input \
+            || pip install "https://github.com/twopirllc/pandas-ta/archive/0.3.14b0.zip" --no-input \
+            || pip install "https://github.com/twopirllc/pandas-ta/archive/refs/heads/master.zip" --no-input)
 
-          # ติดตั้ง iqoptionapi จาก ZIP ของ repo ที่ต้นระบุ (แทน git+)
-          pip install "https://github.com/Axxxeel89/iqoptionapi/archive/refs/heads/master.zip"
+          echo "== install iqoptionapi from your repo ZIP =="
+          pip install "https://github.com/Axxxeel89/iqoptionapi/archive/refs/heads/master.zip" --no-input
 
-          # ไม่ติดตั้ง python-machineid อีกแล้ว (เราใส่โมดูล python_machineid/ เองไว้ในโปรเจกต์แล้ว)
+          # เราใช้โมดูลทดแทน python_machineid ภายในโปรเจกต์ ไม่ต้อง pip install
           pip install pyinstaller
+    
       - name: Build .app with PyInstaller
         shell: bash
         run: |
